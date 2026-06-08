@@ -1,3 +1,5 @@
+const SPREADSHEET_ID = '1un3DFC_1Bl3a2xJINRpPxrjlonNlYithTnj2rL9j7WU';
+
 const SHEET_NAMES = {
   inventory: 'Inventory',
   sales: 'Sales',
@@ -52,7 +54,7 @@ function handleAction(body) {
 }
 
 function setupSpreadsheet() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheet();
   Object.keys(SHEET_NAMES).forEach(function(key) {
     const name = SHEET_NAMES[key];
     let sheet = ss.getSheetByName(name);
@@ -80,7 +82,7 @@ function addInventory(inventory) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAMES.inventory);
     sheet.appendRow([
       cleanDate(inventory.dateReceived),
@@ -117,7 +119,7 @@ function addSale(sale) {
     if (quantitySold > available) {
       throw new Error('Only ' + available + ' item(s) available for this school, item, and size.');
     }
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAMES.sales);
     sheet.appendRow([
       cleanDate(sale.saleDate),
@@ -229,7 +231,7 @@ function buildDashboardRows(stockRows, sales, creditRows, pendingRows) {
 }
 
 function notifyLowStockForItem(school, item, size) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheet();
   const stockRows = readObjects(SHEET_NAMES.stock, HEADERS.stock);
   const match = stockRows.find(function(row) {
     return row['School Name'] === school && row['Item Name'] === item && String(row.Size) === String(size);
@@ -326,7 +328,7 @@ function mapPending(rows) {
 }
 
 function readObjects(sheetName, headers) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  const sheet = getSpreadsheet().getSheetByName(sheetName);
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
   const values = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
@@ -342,7 +344,7 @@ function readObjects(sheetName, headers) {
 }
 
 function replaceData(sheetName, headers, rows) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+  const sheet = getSpreadsheet().getSheetByName(sheetName);
   const lastRow = sheet.getLastRow();
   if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, Math.max(sheet.getLastColumn(), headers.length)).clearContent();
   if (rows.length) sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
@@ -363,6 +365,13 @@ function validateRequired(object, fields) {
       throw new Error('Missing required field: ' + field);
     }
   });
+}
+
+function getSpreadsheet() {
+  if (SPREADSHEET_ID && SPREADSHEET_ID !== 'PASTE_SPREADSHEET_ID_HERE') {
+    return SpreadsheetApp.openById(SPREADSHEET_ID);
+  }
+  return SpreadsheetApp.getActiveSpreadsheet();
 }
 
 function cleanDate(value) {
