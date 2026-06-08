@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>School Dress Inventory & Sales Management System</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">School Uniform Store</p>
+        <h1>School Dress Inventory & Sales Management System</h1>
+      </div>
+      <button id="syncButton" class="icon-button" type="button" aria-label="Refresh data" title="Refresh data">↻</button>
+    </header>
+
+    <main>
+      <section id="setupPanel" class="setup-panel">
+        <h2>Connect Google Sheets</h2>
+        <p>Paste your Google Apps Script Web App URL once. The app will remember it on this phone.</p>
+        <label>
+          Apps Script Web App URL
+          <input id="apiUrlInput" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+        </label>
+        <button id="saveApiUrl" class="primary-button" type="button">Save Connection</button>
+      </section>
+
+      <nav class="tab-bar" aria-label="Main sections">
+        <button class="tab-button active" type="button" data-page="dashboard">Dashboard</button>
+        <button class="tab-button" type="button" data-page="inventory">Inventory</button>
+        <button class="tab-button" type="button" data-page="sales">Sales</button>
+        <button class="tab-button" type="button" data-page="credits">Credits</button>
+        <button class="tab-button" type="button" data-page="pending">Pending</button>
+        <button class="tab-button" type="button" data-page="reports">Reports</button>
+      </nav>
+
+      <section class="filter-panel">
+        <label>
+          Search
+          <input id="searchText" type="search" placeholder="Student, school, item, supplier">
+        </label>
+        <div class="filter-grid">
+          <label>
+            School
+            <input id="schoolFilter" type="text" placeholder="All schools">
+          </label>
+          <label>
+            Item
+            <select id="itemFilter">
+              <option value="">All items</option>
+            </select>
+          </label>
+          <label>
+            Size
+            <select id="sizeFilter">
+              <option value="">All sizes</option>
+            </select>
+          </label>
+          <label>
+            Date
+            <input id="dateFilter" type="date">
+          </label>
+        </div>
+      </section>
+
+      <section id="dashboard" class="page active">
+        <div class="metric-grid">
+          <article class="metric">
+            <span>Total Inventory</span>
+            <strong id="totalInventory">0</strong>
+          </article>
+          <article class="metric">
+            <span>Total Sales</span>
+            <strong id="totalSales">0</strong>
+          </article>
+          <article class="metric warning">
+            <span>Credit Outstanding</span>
+            <strong id="totalCredit">0</strong>
+          </article>
+          <article class="metric">
+            <span>Pending Items</span>
+            <strong id="pendingCount">0</strong>
+          </article>
+          <article class="metric low">
+            <span>Low Stock</span>
+            <strong id="lowStockCount">0</strong>
+          </article>
+          <article class="metric danger">
+            <span>Out of Stock</span>
+            <strong id="outStockCount">0</strong>
+          </article>
+        </div>
+
+        <div class="section-heading">
+          <h2>Stock Table</h2>
+          <span id="lastUpdated">Not synced</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>School</th>
+                <th>Item</th>
+                <th>Size</th>
+                <th>Available</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="stockTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="inventory" class="page">
+        <form id="inventoryForm" class="entry-form">
+          <h2>Add Inventory</h2>
+          <label>Date Received <input name="dateReceived" type="date" required></label>
+          <label>Supplier Name <input name="supplierName" type="text" required></label>
+          <label>School Name <input name="schoolName" type="text" required></label>
+          <label>Item Name <select name="itemName" required></select></label>
+          <label id="customInventoryWrap" class="hidden">Custom Item <input name="customItem" type="text"></label>
+          <label>Size <select name="size" required></select></label>
+          <label>Quantity Received <input name="quantityReceived" type="number" min="1" inputmode="numeric" required></label>
+          <label>Remarks <textarea name="remarks" rows="3"></textarea></label>
+          <button class="primary-button" type="submit">Add Stock</button>
+        </form>
+      </section>
+
+      <section id="sales" class="page">
+        <form id="salesForm" class="entry-form">
+          <h2>Add Sale</h2>
+          <label>Sale Date <input name="saleDate" type="date" required></label>
+          <label>Student Name <input name="studentName" type="text" required></label>
+          <label>School Name <input name="schoolName" type="text" required></label>
+          <label>Item Name <select name="itemName" required></select></label>
+          <label id="customSalesWrap" class="hidden">Custom Item <input name="customItem" type="text"></label>
+          <label>Size <select name="size" required></select></label>
+          <label>Quantity Sold <input name="quantitySold" type="number" min="1" inputmode="numeric" required></label>
+          <label>Selling Price <input name="sellingPrice" type="number" min="0" step="0.01" inputmode="decimal" required></label>
+          <label>Additional Cost <input name="additionalCost" type="number" min="0" step="0.01" inputmode="decimal"></label>
+          <label>Amount Paid <input name="amountPaid" type="number" min="0" step="0.01" inputmode="decimal" required></label>
+          <label>Remaining Amount Due <input name="remainingAmount" type="number" min="0" step="0.01" inputmode="decimal" readonly></label>
+          <label>Credit Sale <select name="creditSale" required><option>No</option><option>Yes</option></select></label>
+          <label>Phone No. <input name="phoneNo" type="tel" inputmode="tel"></label>
+          <label>Item Left To Give <select name="itemLeftToGive" required></select></label>
+          <label>Notes <textarea name="notes" rows="3"></textarea></label>
+          <button class="primary-button" type="submit">Save Sale</button>
+        </form>
+      </section>
+
+      <section id="credits" class="page">
+        <div class="section-heading">
+          <h2>Credit Sales</h2>
+          <strong id="creditPageTotal">0</strong>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>School</th>
+                <th>Total Bill</th>
+                <th>Paid</th>
+                <th>Remaining</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="creditTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="pending" class="page">
+        <div class="section-heading">
+          <h2>Pending Deliveries</h2>
+          <strong id="pendingPageTotal">0</strong>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>School</th>
+                <th>Item Sold</th>
+                <th>Pending Item</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="pendingTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="reports" class="page">
+        <div class="report-actions">
+          <label>
+            Report
+            <select id="reportType">
+              <option value="dailySales">Daily Sales</option>
+              <option value="weeklySales">Weekly Sales</option>
+              <option value="monthlySales">Monthly Sales</option>
+              <option value="inventory">Inventory Report</option>
+              <option value="credit">Credit Report</option>
+              <option value="pending">Pending Delivery Report</option>
+            </select>
+          </label>
+          <label>
+            Date
+            <input id="reportDate" type="date">
+          </label>
+          <button id="runReport" class="primary-button" type="button">Generate Report</button>
+          <button id="exportPdf" class="secondary-button" type="button">Export PDF</button>
+          <button id="exportExcel" class="secondary-button" type="button">Export Excel</button>
+        </div>
+        <div id="reportTitle" class="report-title">Select a report</div>
+        <div class="table-wrap report-table">
+          <table id="reportTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <script src="script.js"></script>
+  </body>
+</html>
