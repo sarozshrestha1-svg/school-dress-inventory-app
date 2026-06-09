@@ -23,7 +23,11 @@ document.addEventListener("DOMContentLoaded", () => {
   fillStaticOptions();
   setDefaultDates();
   bindEvents();
-  const savedUrl = localStorage.getItem(STORAGE_KEY) || DEFAULT_API_URL;
+  const storedUrl = localStorage.getItem(STORAGE_KEY);
+  if (storedUrl && storedUrl !== DEFAULT_API_URL) {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+  const savedUrl = DEFAULT_API_URL;
   $("#apiUrlInput").value = savedUrl;
   $("#setupPanel").classList.toggle("hidden", Boolean(savedUrl));
   loadAllData();
