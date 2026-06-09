@@ -98,7 +98,17 @@ function getApiUrl() {
 async function api(action, payload = {}) {
   const url = getApiUrl();
   if (!url) throw new Error("Apps Script URL is not connected.");
-  return jsonp(url, { action, ...payload });
+  try {
+    return await jsonp(url, { action, ...payload });
+  } catch (error) {
+    const savedUrl = localStorage.getItem(STORAGE_KEY);
+    if (savedUrl && savedUrl !== DEFAULT_API_URL) {
+      localStorage.removeItem(STORAGE_KEY);
+      $("#apiUrlInput").value = DEFAULT_API_URL;
+      return jsonp(DEFAULT_API_URL, { action, ...payload });
+    }
+    throw error;
+  }
 }
 
 function jsonp(url, payload) {
