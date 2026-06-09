@@ -3,7 +3,7 @@ const SALES_ITEMS = ["3 Piece Set", "Track Only", "T-Shirt Only", "Suit Only", "
 const SIZES = ["16", "18", "20", "22", "24", "26", "28", "30"];
 const PENDING_ITEMS = ["T-Shirt Left", "Track Left", "Suit Left", "Nothing Pending"];
 const STORAGE_KEY = "schoolDressApiUrl";
-const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbz7UTct796O1z3m446qJ6cn82idC3p5U75_NXlgNy7XvJhoyGb6DAYA0zhI-A1tqqC2jA/exec";
+const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbxD6f-dmyZTvdAghqZSrmE7NLl4lQR2ifiM0iyce7nfHHerUoZVwCuSrer0CfuVBgcJ1A/exec";
 
 const state = {
   stock: [],
