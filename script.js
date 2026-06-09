@@ -134,9 +134,10 @@ function jsonp(url, payload) {
   });
 }
 
-async function loadAllData() {
+async function loadAllData(options = {}) {
+  const silent = Boolean(options.silent);
   try {
-    showToast("Loading latest records...");
+    if (!silent) showToast("Loading latest records...");
     const data = await api("getAllData");
     Object.assign(state, {
       stock: data.stock || [],
@@ -148,7 +149,7 @@ async function loadAllData() {
     });
     renderAll();
     $("#lastUpdated").textContent = `Synced ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-    showToast("Records updated.");
+    if (!silent) showToast("Records updated.");
   } catch (error) {
     showToast(error.message);
     $("#setupPanel").classList.remove("hidden");
@@ -158,35 +159,57 @@ async function loadAllData() {
 async function submitInventory(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  const submitButton = form.querySelector("button[type='submit']");
   const payload = formToObject(form);
   payload.itemName = normalizeCustomItem(payload.itemName, payload.customItem);
   try {
+    setSubmitting(submitButton, true, "Saving...");
     await api("addInventory", { inventory: payload });
-    form.reset();
-    setDefaultDates();
-    await loadAllData();
-    showToast("Inventory added and stock increased.");
+    resetEntryForm(form);
+    await loadAllData({ silent: true });
+    showToast("Inventory saved. Form cleared and stock refreshed.");
   } catch (error) {
     showToast(error.message);
+  } finally {
+    setSubmitting(submitButton, false);
   }
 }
 
 async function submitSale(event) {
   event.preventDefault();
   const form = event.currentTarget;
+  const submitButton = form.querySelector("button[type='submit']");
   const payload = formToObject(form);
   payload.itemName = normalizeCustomItem(payload.itemName, payload.customItem);
   updateRemainingAmount();
   payload.remainingAmount = form.remainingAmount.value;
   try {
+    setSubmitting(submitButton, true, "Saving...");
     await api("addSale", { sale: payload });
-    form.reset();
-    setDefaultDates();
-    await loadAllData();
-    showToast("Sale saved and stock decreased.");
+    resetEntryForm(form);
+    await loadAllData({ silent: true });
+    showToast("Sale saved. Form cleared and stock refreshed.");
   } catch (error) {
     showToast(error.message);
+  } finally {
+    setSubmitting(submitButton, false);
   }
+}
+
+function resetEntryForm(form) {
+  form.reset();
+  setDefaultDates();
+  toggleCustomFields();
+  const remainingField = form.querySelector("[name='remainingAmount']");
+  if (remainingField) remainingField.value = "";
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function setSubmitting(button, isSubmitting, label) {
+  if (!button) return;
+  if (!button.dataset.defaultText) button.dataset.defaultText = button.textContent;
+  button.disabled = isSubmitting;
+  button.textContent = isSubmitting ? label : button.dataset.defaultText;
 }
 
 function formToObject(form) {
