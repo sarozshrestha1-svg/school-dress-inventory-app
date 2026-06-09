@@ -89,6 +89,16 @@ async function api(action, payload = {}) {
   return jsonp(url, { action, ...payload });
 }
 
+async function saveEntry(action, payload = {}) {
+  try {
+    return await api(action, payload);
+  } catch (error) {
+    if (!isConnectionError(error)) throw error;
+    await sendWithIframe(action, payload);
+    return { ok: true, message: "Saved using mobile backup connection.", backup: true };
+  }
+}
+
 function clearOldConnection() {
   try {
     localStorage.removeItem("schoolDressApiUrl");
@@ -130,6 +140,44 @@ function jsonp(url, payload) {
   });
 }
 
+function isConnectionError(error) {
+  const message = String(error && error.message ? error.message : error);
+  return message.includes("Could not connect") || message.includes("Connection timed out");
+}
+
+function sendWithIframe(action, payload) {
+  return new Promise((resolve, reject) => {
+    const iframe = document.createElement("iframe");
+    iframe.name = `schoolDressSave_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    iframe.style.display = "none";
+    const params = new URLSearchParams({
+      payload: JSON.stringify({ action, ...payload })
+    });
+    let settled = false;
+
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      setTimeout(() => iframe.remove(), 1000);
+      resolve({ ok: true });
+    };
+
+    const timeout = setTimeout(done, 7000);
+    iframe.onload = () => {
+      clearTimeout(timeout);
+      done();
+    };
+    iframe.onerror = () => {
+      clearTimeout(timeout);
+      iframe.remove();
+      reject(new Error("Mobile backup connection failed. Please open the Apps Script link once on this phone and try again."));
+    };
+
+    document.body.appendChild(iframe);
+    iframe.src = `${getApiUrl()}?${params.toString()}`;
+  });
+}
+
 async function loadAllData(options = {}) {
   const silent = Boolean(options.silent);
   try {
@@ -159,10 +207,10 @@ async function submitInventory(event) {
   payload.itemName = normalizeCustomItem(payload.itemName, payload.customItem);
   try {
     setSubmitting(submitButton, true, "Saving...");
-    await api("addInventory", { inventory: payload });
+    const result = await saveEntry("addInventory", { inventory: payload });
     resetEntryForm(form);
-    await loadAllData({ silent: true });
-    showToast("Inventory saved. Form cleared and stock refreshed.");
+    if (!result.backup) await loadAllData({ silent: true });
+    showToast(result.backup ? "Inventory sent to Google Sheets. Form cleared." : "Inventory saved. Form cleared and stock refreshed.");
   } catch (error) {
     showToast(error.message);
   } finally {
@@ -180,10 +228,10 @@ async function submitSale(event) {
   payload.remainingAmount = form.remainingAmount.value;
   try {
     setSubmitting(submitButton, true, "Saving...");
-    await api("addSale", { sale: payload });
+    const result = await saveEntry("addSale", { sale: payload });
     resetEntryForm(form);
-    await loadAllData({ silent: true });
-    showToast("Sale saved. Form cleared and stock refreshed.");
+    if (!result.backup) await loadAllData({ silent: true });
+    showToast(result.backup ? "Sale sent to Google Sheets. Form cleared." : "Sale saved. Form cleared and stock refreshed.");
   } catch (error) {
     showToast(error.message);
   } finally {
