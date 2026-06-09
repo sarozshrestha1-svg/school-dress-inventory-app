@@ -3,6 +3,7 @@ const SALES_ITEMS = ["3 Piece Set", "Track Only", "T-Shirt Only", "Suit Only", "
 const SIZES = ["16", "18", "20", "22", "24", "26", "28", "30"];
 const PENDING_ITEMS = ["T-Shirt Left", "Track Left", "Suit Left", "Nothing Pending"];
 const STORAGE_KEY = "schoolDressApiUrl";
+const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbz7UTct796O1z3m446qJ6cn82idC3p5U75_NXlgNy7XvJhoyGb6DAYA0zhI-A1tqqC2jA/exec";
 
 const state = {
   stock: [],
@@ -22,10 +23,10 @@ document.addEventListener("DOMContentLoaded", () => {
   fillStaticOptions();
   setDefaultDates();
   bindEvents();
-  const savedUrl = localStorage.getItem(STORAGE_KEY) || "";
+  const savedUrl = localStorage.getItem(STORAGE_KEY) || DEFAULT_API_URL;
   $("#apiUrlInput").value = savedUrl;
   $("#setupPanel").classList.toggle("hidden", Boolean(savedUrl));
-  if (savedUrl) loadAllData();
+  loadAllData();
 });
 
 function fillStaticOptions() {
@@ -91,7 +92,7 @@ function saveApiUrl() {
 }
 
 function getApiUrl() {
-  return localStorage.getItem(STORAGE_KEY) || $("#apiUrlInput").value.trim();
+  return localStorage.getItem(STORAGE_KEY) || $("#apiUrlInput").value.trim() || DEFAULT_API_URL;
 }
 
 async function api(action, payload = {}) {
