@@ -2,7 +2,6 @@ const ITEMS = ["3 Piece Set", "Track Only", "T-Shirt Only", "Suit Only", "Custom
 const SALES_ITEMS = ["3 Piece Set", "Track Only", "T-Shirt Only", "Suit Only", "Custom"];
 const SIZES = ["16", "18", "20", "22", "24", "26", "28", "30"];
 const PENDING_ITEMS = ["T-Shirt Left", "Track Left", "Suit Left", "Nothing Pending"];
-const STORAGE_KEY = "schoolDressApiUrl";
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbxD6f-dmyZTvdAghqZSrmE7NLl4lQR2ifiM0iyce7nfHHerUoZVwCuSrer0CfuVBgcJ1A/exec";
 
 const state = {
@@ -23,13 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
   fillStaticOptions();
   setDefaultDates();
   bindEvents();
-  const storedUrl = localStorage.getItem(STORAGE_KEY);
-  if (storedUrl && storedUrl !== DEFAULT_API_URL) {
-    localStorage.removeItem(STORAGE_KEY);
-  }
-  const savedUrl = DEFAULT_API_URL;
-  $("#apiUrlInput").value = savedUrl;
-  $("#setupPanel").classList.toggle("hidden", Boolean(savedUrl));
+  clearOldConnection();
   loadAllData();
 });
 
@@ -65,7 +58,6 @@ function bindEvents() {
   $$(".tab-button").forEach((button) => {
     button.addEventListener("click", () => showPage(button.dataset.page));
   });
-  $("#saveApiUrl").addEventListener("click", saveApiUrl);
   $("#syncButton").addEventListener("click", loadAllData);
   $("#inventoryForm").addEventListener("submit", submitInventory);
   $("#salesForm").addEventListener("submit", submitSale);
@@ -87,31 +79,21 @@ function showPage(pageId) {
   $$(".page").forEach((page) => page.classList.toggle("active", page.id === pageId));
 }
 
-function saveApiUrl() {
-  const url = $("#apiUrlInput").value.trim();
-  if (!url) return showToast("Please paste the Apps Script Web App URL.");
-  localStorage.setItem(STORAGE_KEY, url);
-  $("#setupPanel").classList.add("hidden");
-  loadAllData();
-}
-
 function getApiUrl() {
-  return localStorage.getItem(STORAGE_KEY) || $("#apiUrlInput").value.trim() || DEFAULT_API_URL;
+  return DEFAULT_API_URL;
 }
 
 async function api(action, payload = {}) {
   const url = getApiUrl();
   if (!url) throw new Error("Apps Script URL is not connected.");
+  return jsonp(url, { action, ...payload });
+}
+
+function clearOldConnection() {
   try {
-    return await jsonp(url, { action, ...payload });
+    localStorage.removeItem("schoolDressApiUrl");
   } catch (error) {
-    const savedUrl = localStorage.getItem(STORAGE_KEY);
-    if (savedUrl && savedUrl !== DEFAULT_API_URL) {
-      localStorage.removeItem(STORAGE_KEY);
-      $("#apiUrlInput").value = DEFAULT_API_URL;
-      return jsonp(DEFAULT_API_URL, { action, ...payload });
-    }
-    throw error;
+    // Some mobile browsers block local storage in private mode; the app does not need it.
   }
 }
 
@@ -141,7 +123,7 @@ function jsonp(url, payload) {
     };
     script.onerror = () => {
       cleanup();
-      reject(new Error("Could not connect to Google Apps Script."));
+      reject(new Error(`Could not connect to Google Apps Script. Open this link once on this phone, then return to the app: ${DEFAULT_API_URL}`));
     };
     script.src = `${url}${url.includes("?") ? "&" : "?"}${params.toString()}`;
     document.body.appendChild(script);
@@ -166,7 +148,6 @@ async function loadAllData(options = {}) {
     if (!silent) showToast("Records updated.");
   } catch (error) {
     showToast(error.message);
-    $("#setupPanel").classList.remove("hidden");
   }
 }
 
