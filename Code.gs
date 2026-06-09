@@ -38,11 +38,18 @@ function doGet(e) {
 function doPost(e) {
   try {
     setupSpreadsheet();
-    const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    const body = parseRequestBody(e);
     return jsonResponse(handleAction(body));
   } catch (error) {
     return jsonResponse({ ok: false, message: error.message });
   }
+}
+
+function parseRequestBody(e) {
+  if (e && e.parameter && e.parameter.payload) {
+    return JSON.parse(e.parameter.payload || '{}');
+  }
+  return JSON.parse((e && e.postData && e.postData.contents) || '{}');
 }
 
 function handleAction(body) {
@@ -148,7 +155,7 @@ function addSale(sale) {
 }
 
 function rebuildDerivedSheets() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheet();
   const stockRows = buildStockSummaryRows();
   replaceData(SHEET_NAMES.stock, HEADERS.stock, stockRows);
 

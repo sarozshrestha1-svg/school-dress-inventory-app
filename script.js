@@ -94,7 +94,7 @@ async function saveEntry(action, payload = {}) {
     return await api(action, payload);
   } catch (error) {
     if (!isConnectionError(error)) throw error;
-    await sendWithIframe(action, payload);
+    await sendWithMobileFetch(action, payload);
     return { ok: true, message: "Saved using mobile backup connection.", backup: true };
   }
 }
@@ -145,36 +145,20 @@ function isConnectionError(error) {
   return message.includes("Could not connect") || message.includes("Connection timed out");
 }
 
-function sendWithIframe(action, payload) {
-  return new Promise((resolve, reject) => {
-    const iframe = document.createElement("iframe");
-    iframe.name = `schoolDressSave_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    iframe.style.display = "none";
-    const params = new URLSearchParams({
-      payload: JSON.stringify({ action, ...payload })
-    });
-    let settled = false;
-
-    const done = () => {
-      if (settled) return;
-      settled = true;
-      setTimeout(() => iframe.remove(), 1000);
-      resolve({ ok: true });
-    };
-
-    const timeout = setTimeout(done, 7000);
-    iframe.onload = () => {
-      clearTimeout(timeout);
-      done();
-    };
-    iframe.onerror = () => {
-      clearTimeout(timeout);
-      iframe.remove();
-      reject(new Error("Mobile backup connection failed. Please open the Apps Script link once on this phone and try again."));
-    };
-
-    document.body.appendChild(iframe);
-    iframe.src = `${getApiUrl()}?${params.toString()}`;
+async function sendWithMobileFetch(action, payload) {
+  if (!window.fetch) {
+    throw new Error("This mobile browser cannot send data to Google Sheets. Please update Chrome and try again.");
+  }
+  const params = new URLSearchParams({
+    mobileSave: String(Date.now()),
+    payload: JSON.stringify({ action, ...payload })
+  });
+  await fetch(`${getApiUrl()}?${params.toString()}`, {
+    method: "GET",
+    mode: "no-cors",
+    cache: "no-store",
+    credentials: "omit",
+    redirect: "follow"
   });
 }
 
