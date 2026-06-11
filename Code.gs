@@ -46,6 +46,39 @@ function doPost(e) {
 }
 
 function parseRequestBody(e) {
+  if (e && e.parameter && e.parameter.action) {
+    const body = { action: e.parameter.action };
+    if (body.action === 'addInventory') {
+      body.inventory = {
+        dateReceived: e.parameter.dateReceived,
+        supplierName: e.parameter.supplierName,
+        schoolName: e.parameter.schoolName,
+        itemName: e.parameter.itemName,
+        size: e.parameter.size,
+        quantityReceived: e.parameter.quantityReceived,
+        remarks: e.parameter.remarks
+      };
+    }
+    if (body.action === 'addSale') {
+      body.sale = {
+        saleDate: e.parameter.saleDate,
+        studentName: e.parameter.studentName,
+        schoolName: e.parameter.schoolName,
+        itemName: e.parameter.itemName,
+        size: e.parameter.size,
+        quantitySold: e.parameter.quantitySold,
+        sellingPrice: e.parameter.sellingPrice,
+        additionalCost: e.parameter.additionalCost,
+        amountPaid: e.parameter.amountPaid,
+        remainingAmount: e.parameter.remainingAmount,
+        creditSale: e.parameter.creditSale,
+        phoneNo: e.parameter.phoneNo,
+        itemLeftToGive: e.parameter.itemLeftToGive,
+        notes: e.parameter.notes
+      };
+    }
+    return body;
+  }
   if (e && e.parameter && e.parameter.payload) {
     return JSON.parse(e.parameter.payload || '{}');
   }

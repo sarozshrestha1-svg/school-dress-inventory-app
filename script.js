@@ -90,13 +90,8 @@ async function api(action, payload = {}) {
 }
 
 async function saveEntry(action, payload = {}) {
-  try {
-    return await api(action, payload);
-  } catch (error) {
-    if (!isConnectionError(error)) throw error;
-    await sendWithMobileFetch(action, payload);
-    return { ok: true, message: "Saved using mobile backup connection.", backup: true };
-  }
+  await sendWithFormData(action, payload);
+  return { ok: true, message: "Saved using mobile connection.", backup: true };
 }
 
 function clearOldConnection() {
@@ -145,20 +140,21 @@ function isConnectionError(error) {
   return message.includes("Could not connect") || message.includes("Connection timed out");
 }
 
-async function sendWithMobileFetch(action, payload) {
+async function sendWithFormData(action, payload) {
   if (!window.fetch) {
     throw new Error("This mobile browser cannot send data to Google Sheets. Please update Chrome and try again.");
   }
-  const params = new URLSearchParams({
-    mobileSave: String(Date.now()),
-    payload: JSON.stringify({ action, ...payload })
+  const formData = new FormData();
+  formData.append("action", action);
+  const entry = payload.inventory || payload.sale || {};
+  Object.keys(entry).forEach((key) => {
+    formData.append(key, entry[key] || "");
   });
-  await fetch(`${getApiUrl()}?${params.toString()}`, {
-    method: "GET",
+  await fetch(getApiUrl(), {
+    method: "POST",
+    body: formData,
     mode: "no-cors",
-    cache: "no-store",
-    credentials: "omit",
-    redirect: "follow"
+    cache: "no-store"
   });
 }
 
