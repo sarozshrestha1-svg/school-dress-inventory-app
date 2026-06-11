@@ -3,6 +3,7 @@ const SALES_ITEMS = ["3 Piece Set", "Track Only", "T-Shirt Only", "Suit Only", "
 const SIZES = ["16", "18", "20", "22", "24", "26", "28", "30"];
 const PENDING_ITEMS = ["T-Shirt Left", "Track Left", "Suit Left", "Nothing Pending"];
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbxD6f-dmyZTvdAghqZSrmE7NLl4lQR2ifiM0iyce7nfHHerUoZVwCuSrer0CfuVBgcJ1A/exec";
+const OWNER_WHATSAPP = "9866631883";
 
 const state = {
   stock: [],
@@ -188,9 +189,10 @@ async function submitInventory(event) {
   try {
     setSubmitting(submitButton, true, "Saving...");
     const result = await saveEntry("addInventory", { inventory: payload });
+    openWhatsAppMessage(OWNER_WHATSAPP, buildInventoryWhatsAppMessage(payload));
     resetEntryForm(form);
     if (!result.backup) await loadAllData({ silent: true });
-    showToast(result.backup ? "Inventory sent to Google Sheets. Form cleared." : "Inventory saved. Form cleared and stock refreshed.");
+    showToast(result.backup ? "Inventory saved. Owner WhatsApp message ready." : "Inventory saved. Owner WhatsApp message ready.");
   } catch (error) {
     showToast(error.message);
   } finally {
@@ -209,9 +211,12 @@ async function submitSale(event) {
   try {
     setSubmitting(submitButton, true, "Saving...");
     const result = await saveEntry("addSale", { sale: payload });
+    if (payload.phoneNo.trim()) {
+      openWhatsAppMessage(payload.phoneNo, buildSalesWhatsAppMessage(payload));
+    }
     resetEntryForm(form);
     if (!result.backup) await loadAllData({ silent: true });
-    showToast(result.backup ? "Sale sent to Google Sheets. Form cleared." : "Sale saved. Form cleared and stock refreshed.");
+    showToast(payload.phoneNo.trim() ? "Sale saved. Customer WhatsApp bill ready." : "Sale saved. No customer phone number entered.");
   } catch (error) {
     showToast(error.message);
   } finally {
@@ -237,6 +242,65 @@ function setSubmitting(button, isSubmitting, label) {
 
 function formToObject(form) {
   return Object.fromEntries(new FormData(form).entries());
+}
+
+function buildSalesWhatsAppMessage(sale) {
+  const quantity = number(sale.quantitySold);
+  const price = number(sale.sellingPrice);
+  const extra = number(sale.additionalCost);
+  const total = quantity * price + extra;
+  const paid = number(sale.amountPaid);
+  const remaining = Math.max(total - paid, 0);
+  return [
+    "*HIMALAYAN GARMENT UDHYOG*",
+    "--------------------------",
+    `*Date*: ${formatDate(sale.saleDate)}`,
+    `*Customer*: ${sale.studentName || "Customer"}`,
+    `*School*: ${sale.schoolName}`,
+    `*Item*: ${sale.itemName}`,
+    `*Size*: ${sale.size}`,
+    `*Quantity*: ${quantity}`,
+    `*Rate*: Rs ${money(price)}`,
+    `*Additional Cost*: Rs ${money(extra)}`,
+    "--------------------------",
+    `*Total Bill*: Rs ${money(total)}`,
+    `*Amount Paid*: Rs ${money(paid)}`,
+    `*Credit Left*: Rs ${money(remaining)}`,
+    `*Pending Item*: ${sale.itemLeftToGive || "Nothing Pending"}`,
+    "--------------------------",
+    "Thank you."
+  ].join("\n");
+}
+
+function buildInventoryWhatsAppMessage(inventory) {
+  return [
+    "*HIMALAYAN GARMENT UDHYOG*",
+    "Inventory Received",
+    "--------------------------",
+    `Date: ${formatDate(inventory.dateReceived)}`,
+    `Supplier: ${inventory.supplierName}`,
+    `School: ${inventory.schoolName}`,
+    `Item: ${inventory.itemName}`,
+    `Size: ${inventory.size}`,
+    `Quantity Received: ${inventory.quantityReceived}`,
+    inventory.remarks ? `Remarks: ${inventory.remarks}` : "",
+    "--------------------------",
+    `${inventory.quantityReceived} quantity of ${inventory.itemName} size ${inventory.size} was received from ${inventory.supplierName} for ${inventory.schoolName}.`
+  ].filter(Boolean).join("\n");
+}
+
+function openWhatsAppMessage(phone, message) {
+  const normalized = normalizeNepalPhone(phone);
+  if (!normalized) return;
+  window.open(`https://wa.me/${normalized}?text=${encodeURIComponent(message)}`, "_blank");
+}
+
+function normalizeNepalPhone(phone) {
+  const digits = String(phone || "").replace(/[^0-9]/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("977")) return digits;
+  if (digits.length === 10) return `977${digits}`;
+  return digits;
 }
 
 function normalizeCustomItem(itemName, customItem) {
