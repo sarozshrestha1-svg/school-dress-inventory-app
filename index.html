@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>School Dress Inventory & Sales Management System</title>
-    <link rel="stylesheet" href="style.css?v=20260611-3">
+    <link rel="stylesheet" href="style.css?v=20260611-4">
   </head>
   <body>
     <header class="app-header">
@@ -27,31 +27,11 @@
 
       <section class="filter-panel">
         <label>
-          Search
-          <input id="searchText" type="search" placeholder="Student, school, item, supplier">
+          Search Name
+          <input id="searchName" type="search" placeholder="Enter student/customer name" autocomplete="off">
         </label>
-        <div class="filter-grid">
-          <label>
-            School
-            <input id="schoolFilter" type="text" placeholder="All schools">
-          </label>
-          <label>
-            Item
-            <select id="itemFilter">
-              <option value="">All items</option>
-            </select>
-          </label>
-          <label>
-            Size
-            <select id="sizeFilter">
-              <option value="">All sizes</option>
-            </select>
-          </label>
-          <label>
-            Date
-            <input id="dateFilter" type="date">
-          </label>
-        </div>
+        <button id="searchNameButton" class="secondary-button" type="button">Search Name</button>
+        <div id="nameSearchResults" class="search-results" aria-live="polite"></div>
       </section>
 
       <section id="dashboard" class="page active">
@@ -120,6 +100,7 @@
       <section id="sales" class="page">
         <form id="salesForm" class="entry-form">
           <h2>Add Sale</h2>
+          <input name="rowNumber" type="hidden">
           <label>Sale Date <input name="saleDate" type="date" required></label>
           <label>Student Name <input name="studentName" type="text" required></label>
           <label>School Name <input name="schoolName" type="text" required></label>
@@ -135,6 +116,7 @@
           <label>Phone No. <input name="phoneNo" type="tel" inputmode="tel"></label>
           <label>Item Left To Give <select name="itemLeftToGive" required></select></label>
           <label>Notes <textarea name="notes" rows="3"></textarea></label>
+          <button id="cancelSaleEdit" class="secondary-button hidden" type="button">Cancel Edit</button>
           <button class="primary-button" type="submit">Save Sale</button>
         </form>
       </section>
@@ -214,6 +196,6 @@
     </main>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
-    <script src="script.js?v=20260611-3"></script>
+    <script src="script.js?v=20260611-4"></script>
   </body>
 </html>

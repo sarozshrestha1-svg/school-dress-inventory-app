@@ -175,6 +175,51 @@ textarea {
   gap: 10px;
 }
 
+.search-results {
+  display: grid;
+  gap: 8px;
+}
+
+.search-result {
+  width: 100%;
+  min-height: 74px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+}
+
+.search-result:hover,
+.search-result:focus {
+  border-color: var(--brand);
+  outline: 2px solid var(--soft-brand);
+}
+
+.search-result strong,
+.search-result span {
+  display: block;
+}
+
+.search-result span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.search-empty {
+  padding: 10px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.entry-form.editing {
+  border-color: var(--brand);
+  background: var(--soft-brand);
+}
+
 .page {
   display: none;
 }

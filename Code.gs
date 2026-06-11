@@ -59,8 +59,9 @@ function parseRequestBody(e) {
         remarks: e.parameter.remarks
       };
     }
-    if (body.action === 'addSale') {
+    if (body.action === 'addSale' || body.action === 'updateSale') {
       body.sale = {
+        rowNumber: e.parameter.rowNumber,
         saleDate: e.parameter.saleDate,
         studentName: e.parameter.studentName,
         schoolName: e.parameter.schoolName,
@@ -90,6 +91,7 @@ function handleAction(body) {
   if (action === 'getAllData') return getAllData();
   if (action === 'addInventory') return addInventory(body.inventory || {});
   if (action === 'addSale') return addSale(body.sale || {});
+  if (action === 'updateSale') return updateSale(body.sale || {});
   return { ok: false, message: 'Unknown action.' };
 }
 
@@ -182,6 +184,50 @@ function addSale(sale) {
     rebuildDerivedSheets();
     notifyLowStockForItem(text(sale.schoolName), text(sale.itemName), text(sale.size));
     return { ok: true, message: 'Sale added.' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function updateSale(sale) {
+  validateRequired(sale, ['rowNumber', 'saleDate', 'studentName', 'schoolName', 'itemName', 'size', 'quantitySold', 'sellingPrice', 'amountPaid']);
+  const rowNumber = number(sale.rowNumber);
+  if (rowNumber < 2) throw new Error('Invalid sale row number.');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const quantitySold = number(sale.quantitySold);
+    const sellingPrice = number(sale.sellingPrice);
+    const additionalCost = number(sale.additionalCost);
+    const totalBill = quantitySold * sellingPrice + additionalCost;
+    const amountPaid = number(sale.amountPaid);
+    const remainingAmount = Math.max(totalBill - amountPaid, 0);
+    const creditSale = remainingAmount > 0 ? 'Yes' : text(sale.creditSale || 'No');
+    const pendingItem = text(sale.itemLeftToGive || 'Nothing Pending');
+    const ss = getSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_NAMES.sales);
+    if (rowNumber > sheet.getLastRow()) throw new Error('Sale record was not found.');
+    sheet.getRange(rowNumber, 1, 1, HEADERS.sales.length).setValues([[
+      cleanDate(sale.saleDate),
+      text(sale.studentName),
+      text(sale.schoolName),
+      text(sale.itemName),
+      text(sale.size),
+      quantitySold,
+      sellingPrice,
+      additionalCost,
+      totalBill,
+      amountPaid,
+      remainingAmount,
+      creditSale,
+      text(sale.phoneNo),
+      pendingItem,
+      text(sale.notes),
+      new Date()
+    ]]);
+    rebuildDerivedSheets();
+    notifyLowStockForItem(text(sale.schoolName), text(sale.itemName), text(sale.size));
+    return { ok: true, message: 'Sale updated.' };
   } finally {
     lock.releaseLock();
   }
@@ -319,6 +365,7 @@ function mapStock(rows) {
 function mapSales(rows) {
   return rows.map(function(row) {
     return {
+      rowNumber: row.__rowNumber,
       saleDate: toIsoDate(row['Sale Date']),
       studentName: row['Student Name'],
       schoolName: row['School Name'],
@@ -372,13 +419,17 @@ function readObjects(sheetName, headers) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
   const values = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
-  return values.filter(function(row) {
+  return values.map(function(row, index) {
+    return { values: row, rowNumber: index + 2 };
+  }).filter(function(entry) {
+    const row = entry.values;
     return row.some(function(cell) { return cell !== ''; });
-  }).map(function(row) {
+  }).map(function(entry) {
     const object = {};
     headers.forEach(function(header, index) {
-      object[header] = row[index];
+      object[header] = entry.values[index];
     });
+    object.__rowNumber = entry.rowNumber;
     return object;
   });
 }

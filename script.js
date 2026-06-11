@@ -28,13 +28,11 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function fillStaticOptions() {
-  fillSelect($("#itemFilter"), ITEMS);
   fillSelect(document.querySelector("#inventoryForm [name='itemName']"), ITEMS);
   fillSelect(document.querySelector("#salesForm [name='itemName']"), SALES_ITEMS);
   fillSelect(document.querySelector("#inventoryForm [name='size']"), SIZES);
   fillSelect(document.querySelector("#salesForm [name='size']"), SIZES);
   fillSelect(document.querySelector("#salesForm [name='itemLeftToGive']"), PENDING_ITEMS);
-  fillSelect($("#sizeFilter"), SIZES);
 }
 
 function fillSelect(select, values) {
@@ -62,12 +60,12 @@ function bindEvents() {
   $("#syncButton").addEventListener("click", loadAllData);
   $("#inventoryForm").addEventListener("submit", submitInventory);
   $("#salesForm").addEventListener("submit", submitSale);
+  $("#searchNameButton").addEventListener("click", renderNameSearchResults);
+  $("#searchName").addEventListener("input", renderNameSearchResults);
+  $("#cancelSaleEdit").addEventListener("click", cancelSaleEdit);
   $("#runReport").addEventListener("click", renderReport);
   $("#exportPdf").addEventListener("click", () => window.print());
   $("#exportExcel").addEventListener("click", exportReportExcel);
-  ["searchText", "schoolFilter", "itemFilter", "sizeFilter", "dateFilter"].forEach((id) => {
-    $(`#${id}`).addEventListener("input", renderAll);
-  });
   document.querySelector("#inventoryForm [name='itemName']").addEventListener("change", toggleCustomFields);
   document.querySelector("#salesForm [name='itemName']").addEventListener("change", toggleCustomFields);
   ["quantitySold", "sellingPrice", "additionalCost", "amountPaid"].forEach((name) => {
@@ -210,16 +208,21 @@ async function submitSale(event) {
   payload.itemName = normalizeCustomItem(payload.itemName, payload.customItem);
   updateRemainingAmount();
   payload.remainingAmount = form.remainingAmount.value;
+  const isEditing = Boolean(payload.rowNumber);
   try {
     setSubmitting(submitButton, true, "Saving...");
-    const savePromise = saveEntry("addSale", { sale: payload });
-    if (payload.phoneNo.trim()) {
+    const savePromise = saveEntry(isEditing ? "updateSale" : "addSale", { sale: payload });
+    if (!isEditing && payload.phoneNo.trim()) {
       openWhatsAppMessage(payload.phoneNo, buildSalesWhatsAppMessage(payload));
     }
     const result = await savePromise;
     resetEntryForm(form);
     if (!result.backup) await loadAllData({ silent: true });
-    showToast(payload.phoneNo.trim() ? "Sale saved. Customer WhatsApp bill ready." : "Sale saved. No customer phone number entered.");
+    showToast(isEditing ? "Sale record updated." : (payload.phoneNo.trim() ? "Sale saved. Customer WhatsApp bill ready." : "Sale saved. No customer phone number entered."));
+    if (isEditing) {
+      await delay(1500);
+      await loadAllData({ silent: true });
+    }
   } catch (error) {
     showToast(error.message);
   } finally {
@@ -233,6 +236,7 @@ function resetEntryForm(form) {
   toggleCustomFields();
   const remainingField = form.querySelector("[name='remainingAmount']");
   if (remainingField) remainingField.value = "";
+  if (form.id === "salesForm") setSaleEditMode(false);
   form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -243,8 +247,91 @@ function setSubmitting(button, isSubmitting, label) {
   button.textContent = isSubmitting ? label : button.dataset.defaultText;
 }
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function formToObject(form) {
   return Object.fromEntries(new FormData(form).entries());
+}
+
+function renderNameSearchResults() {
+  const query = $("#searchName").value.trim().toLowerCase();
+  const container = $("#nameSearchResults");
+  if (!query) {
+    container.innerHTML = "";
+    return;
+  }
+  const matches = state.sales
+    .filter((sale) => String(sale.studentName || "").toLowerCase().includes(query))
+    .sort((a, b) => String(b.saleDate || "").localeCompare(String(a.saleDate || "")))
+    .slice(0, 12);
+  if (!matches.length) {
+    container.innerHTML = '<div class="search-empty">No matching customer found.</div>';
+    return;
+  }
+  container.innerHTML = matches.map((sale) => `
+    <button class="search-result" type="button" data-row="${sale.rowNumber}">
+      <strong>${escapeHtml(sale.studentName || "Unnamed Customer")}</strong>
+      <span>${escapeHtml(sale.schoolName || "")} | ${escapeHtml(sale.itemName || "")} | Size ${escapeHtml(sale.size || "")}</span>
+      <span>${formatDate(sale.saleDate)} | Pending: ${escapeHtml(sale.itemLeftToGive || "Nothing Pending")} | Due: Rs ${money(sale.remainingAmount)}</span>
+    </button>
+  `).join("");
+  $$(".search-result").forEach((button) => {
+    button.addEventListener("click", () => loadSaleForEdit(button.dataset.row));
+  });
+}
+
+function loadSaleForEdit(rowNumber) {
+  const sale = state.sales.find((row) => String(row.rowNumber) === String(rowNumber));
+  if (!sale) return showToast("Could not find this sale record.");
+  const form = $("#salesForm");
+  const fields = form.elements;
+  fields.rowNumber.value = sale.rowNumber || "";
+  fields.saleDate.value = sale.saleDate || "";
+  fields.studentName.value = sale.studentName || "";
+  fields.schoolName.value = sale.schoolName || "";
+  setSelectOrCustom(fields.itemName, sale.itemName, "Custom");
+  fields.size.value = sale.size || "";
+  fields.quantitySold.value = sale.quantitySold || "";
+  fields.sellingPrice.value = sale.sellingPrice || "";
+  fields.additionalCost.value = sale.additionalCost || "";
+  fields.amountPaid.value = sale.amountPaid || "";
+  fields.remainingAmount.value = sale.remainingAmount || "";
+  fields.creditSale.value = sale.creditSale || "No";
+  fields.phoneNo.value = sale.phoneNo || "";
+  fields.itemLeftToGive.value = sale.itemLeftToGive || "Nothing Pending";
+  fields.notes.value = sale.notes || "";
+  setSaleEditMode(true, sale);
+  showPage("sales");
+  updateRemainingAmount();
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+  showToast("Sale loaded. Edit and save to update the old record.");
+}
+
+function setSelectOrCustom(select, value, customValue) {
+  const optionValues = Array.from(select.options).map((option) => option.value);
+  if (optionValues.includes(value)) {
+    select.value = value;
+  } else {
+    select.value = customValue;
+    const customInput = document.querySelector("#salesForm [name='customItem']");
+    if (customInput) customInput.value = value || "";
+  }
+  toggleCustomFields();
+}
+
+function setSaleEditMode(isEditing, sale = {}) {
+  const form = $("#salesForm");
+  form.classList.toggle("editing", isEditing);
+  form.querySelector("h2").textContent = isEditing ? `Edit Sale: ${sale.studentName || ""}` : "Add Sale";
+  form.querySelector("button[type='submit']").textContent = isEditing ? "Update Sale" : "Save Sale";
+  $("#cancelSaleEdit").classList.toggle("hidden", !isEditing);
+}
+
+function cancelSaleEdit() {
+  resetEntryForm($("#salesForm"));
+  showToast("Sale edit cancelled.");
 }
 
 function buildSalesWhatsAppMessage(sale) {
@@ -344,30 +431,12 @@ function updateRemainingAmount() {
 }
 
 function renderAll() {
-  refreshFilterOptions();
   renderDashboard();
   renderStockTable();
   renderCreditTable();
   renderPendingTable();
   renderReport();
-}
-
-function refreshFilterOptions() {
-  const itemSelect = $("#itemFilter");
-  const currentItem = itemSelect.value;
-  const allItems = new Set(["", ...ITEMS]);
-  [...state.stock, ...state.sales, ...state.pending].forEach((row) => {
-    const value = row.itemName || row.itemSold;
-    if (value) allItems.add(value);
-  });
-  itemSelect.innerHTML = "";
-  allItems.forEach((value) => {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = value || "All items";
-    itemSelect.appendChild(option);
-  });
-  itemSelect.value = allItems.has(currentItem) ? currentItem : "";
+  renderNameSearchResults();
 }
 
 function renderDashboard() {
@@ -498,20 +567,7 @@ function isInReportPeriod(rowDate, selectedDate, type) {
 }
 
 function filterRows(rows) {
-  const search = $("#searchText").value.trim().toLowerCase();
-  const school = $("#schoolFilter").value.trim().toLowerCase();
-  const item = $("#itemFilter").value;
-  const size = $("#sizeFilter").value;
-  const date = $("#dateFilter").value;
-  return rows.filter((row) => {
-    const haystack = Object.values(row).join(" ").toLowerCase();
-    const rowDate = normalizeDate(row.saleDate || row.dateReceived || row.date || "");
-    return (!search || haystack.includes(search)) &&
-      (!school || String(row.schoolName || row.school || "").toLowerCase().includes(school)) &&
-      (!item || row.itemName === item || row.itemSold === item) &&
-      (!size || String(row.size) === size) &&
-      (!date || rowDate === date);
-  });
+  return rows;
 }
 
 function fillTable(tbody, rows, mapper) {
