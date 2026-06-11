@@ -87,7 +87,12 @@ function getApiUrl() {
 async function api(action, payload = {}) {
   const url = getApiUrl();
   if (!url) throw new Error("Apps Script URL is not connected.");
-  return jsonp(url, { action, ...payload });
+  const requestPayload = { action, ...payload };
+  try {
+    return await fetchJson(url, requestPayload);
+  } catch (error) {
+    return jsonp(url, requestPayload);
+  }
 }
 
 async function saveEntry(action, payload = {}) {
@@ -134,6 +139,25 @@ function jsonp(url, payload) {
     script.src = `${url}${url.includes("?") ? "&" : "?"}${params.toString()}`;
     document.body.appendChild(script);
   });
+}
+
+async function fetchJson(url, payload) {
+  if (!window.fetch) throw new Error("Fetch is not available.");
+  const params = new URLSearchParams({
+    mobileRead: String(Date.now()),
+    payload: JSON.stringify(payload)
+  });
+  const response = await fetch(`${url}${url.includes("?") ? "&" : "?"}${params.toString()}`, {
+    method: "GET",
+    cache: "no-store",
+    credentials: "omit",
+    redirect: "follow"
+  });
+  if (!response.ok) throw new Error("Google Sheets read failed.");
+  const text = await response.text();
+  const data = JSON.parse(text);
+  if (!data.ok) throw new Error(data.message || "Request failed.");
+  return data;
 }
 
 function isConnectionError(error) {
