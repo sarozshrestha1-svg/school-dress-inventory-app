@@ -1,7 +1,7 @@
 const ITEMS = ["3 Piece Set", "Track Only", "T-Shirt Only", "Suit Only", "Custom Item"];
 const SALES_ITEMS = ["3 Piece Set", "Track Only", "T-Shirt Only", "Suit Only", "Custom"];
 const SIZES = ["16", "18", "20", "22", "24", "26", "28", "30"];
-const PENDING_ITEMS = ["T-Shirt Left", "Track Left", "Suit Left", "Nothing Pending"];
+const PENDING_ITEMS = ["Nothing Pending", "T-Shirt Left", "Track Left", "Suit Left"];
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbxD6f-dmyZTvdAghqZSrmE7NLl4lQR2ifiM0iyce7nfHHerUoZVwCuSrer0CfuVBgcJ1A/exec";
 const OWNER_WHATSAPP = "9866631883";
 
@@ -52,6 +52,8 @@ function setDefaultDates() {
     const input = document.querySelector(`[name='${name}']`);
     if (input) input.value = today;
   });
+  const pendingSelect = document.querySelector("#salesForm [name='itemLeftToGive']");
+  if (pendingSelect) pendingSelect.value = "Nothing Pending";
   $("#reportDate").value = today;
 }
 
