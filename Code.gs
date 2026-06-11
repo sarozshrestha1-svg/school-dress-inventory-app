@@ -23,6 +23,9 @@ const HEADERS = {
 function doGet(e) {
   try {
     const params = e && e.parameter ? e.parameter : {};
+    if (params.searchPage) {
+      return searchPageResponse(params.searchPage, params.appUrl || '');
+    }
     if (params.payload) {
       const body = JSON.parse(params.payload || '{}');
       if (body.action === 'searchSalesByName') {
@@ -366,6 +369,26 @@ function searchSalesByName(query) {
   return { ok: true, sales: matches };
 }
 
+function searchPageResponse(query, appUrl) {
+  const result = searchSalesByName(query);
+  const baseUrl = appUrl || 'https://sarozshrestha1-svg.github.io/school-dress-inventory-app/';
+  const rows = result.sales.map(function(sale) {
+    const saleJson = encodeURIComponent(JSON.stringify(sale));
+    const href = baseUrl + (baseUrl.indexOf('?') === -1 ? '?' : '&') + 'editSale=' + saleJson;
+    return '<a class="result" href="' + htmlEscape(href) + '">' +
+      '<strong>' + htmlEscape(sale.studentName || 'Unnamed Customer') + '</strong>' +
+      '<span>' + htmlEscape((sale.schoolName || '') + ' | ' + (sale.itemName || '') + ' | Size ' + (sale.size || '')) + '</span>' +
+      '<span>' + htmlEscape('Pending: ' + (sale.itemLeftToGive || 'Nothing Pending') + ' | Due: Rs ' + number(sale.remainingAmount)) + '</span>' +
+      '</a>';
+  }).join('');
+  const empty = '<p class="empty">No matching customer found.</p>';
+  const html = '<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<title>Search Sales</title><style>body{font-family:Arial,sans-serif;margin:0;background:#f5f7f9;color:#17212b;padding:16px}.box{max-width:640px;margin:auto}.result{display:block;margin:10px 0;padding:14px;border:1px solid #d8e0e7;border-radius:8px;background:#fff;color:#17212b;text-decoration:none}.result strong,.result span{display:block}.result span{margin-top:5px;color:#66727f;font-size:13px;font-weight:700}.empty{font-weight:700;color:#66727f}</style></head><body><div class="box">' +
+    '<h2>Search results for ' + htmlEscape(query) + '</h2>' + (rows || empty) +
+    '</div></body></html>';
+  return HtmlService.createHtmlOutput(html);
+}
+
 function mapStock(rows) {
   return rows.map(function(row) {
     return {
@@ -520,6 +543,18 @@ function number(value) {
 
 function text(value) {
   return String(value || '').trim();
+}
+
+function htmlEscape(value) {
+  return String(value || '').replace(/[&<>"']/g, function(char) {
+    return {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[char];
+  });
 }
 
 function jsonResponse(payload) {

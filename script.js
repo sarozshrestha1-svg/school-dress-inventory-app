@@ -12,6 +12,7 @@ const state = {
   pending: [],
   notifications: [],
   dashboard: {},
+  searchResults: [],
   reportRows: [],
   reportHeaders: []
 };
@@ -24,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setDefaultDates();
   bindEvents();
   clearOldConnection();
+  loadSaleFromUrl();
   loadAllData();
 });
 
@@ -271,7 +273,18 @@ async function searchSalesByName() {
       .filter((sale) => String(sale.studentName || "").toLowerCase().includes(query))
       .sort((a, b) => String(b.saleDate || "").localeCompare(String(a.saleDate || "")))
       .slice(0, 12);
-    renderNameSearchResults(localMatches);
+    if (localMatches.length) {
+      renderNameSearchResults(localMatches);
+      return;
+    }
+    container.innerHTML = `
+      <div class="search-empty">Mobile search could not load inside this page.</div>
+      <button class="search-result" type="button" id="openMobileSearch">
+        <strong>Open Mobile Search</strong>
+        <span>Tap here to search Google Sheets directly.</span>
+      </button>
+    `;
+    $("#openMobileSearch").addEventListener("click", () => openMobileSearchPage(query));
   }
 }
 
@@ -280,31 +293,37 @@ function renderNameSearchResults(matches = null) {
   const container = $("#nameSearchResults");
   if (!query) {
     container.innerHTML = "";
+    state.searchResults = [];
     return;
   }
   const rows = matches || state.sales
     .filter((sale) => String(sale.studentName || "").toLowerCase().includes(query))
     .sort((a, b) => String(b.saleDate || "").localeCompare(String(a.saleDate || "")))
     .slice(0, 12);
+  state.searchResults = rows;
   if (!rows.length) {
     container.innerHTML = '<div class="search-empty">No matching customer found.</div>';
     return;
   }
-  container.innerHTML = rows.map((sale) => `
-    <button class="search-result" type="button" data-row="${sale.rowNumber}">
+  container.innerHTML = rows.map((sale, index) => `
+    <button class="search-result" type="button" data-index="${index}">
       <strong>${escapeHtml(sale.studentName || "Unnamed Customer")}</strong>
       <span>${escapeHtml(sale.schoolName || "")} | ${escapeHtml(sale.itemName || "")} | Size ${escapeHtml(sale.size || "")}</span>
       <span>${formatDate(sale.saleDate)} | Pending: ${escapeHtml(sale.itemLeftToGive || "Nothing Pending")} | Due: Rs ${money(sale.remainingAmount)}</span>
     </button>
   `).join("");
   $$(".search-result").forEach((button) => {
-    button.addEventListener("click", () => loadSaleForEdit(button.dataset.row));
+    button.addEventListener("click", () => loadSaleForEdit(button.dataset.index));
   });
 }
 
-function loadSaleForEdit(rowNumber) {
-  const sale = state.sales.find((row) => String(row.rowNumber) === String(rowNumber));
+function loadSaleForEdit(index) {
+  const sale = state.searchResults[Number(index)];
   if (!sale) return showToast("Could not find this sale record.");
+  loadSaleIntoForm(sale);
+}
+
+function loadSaleIntoForm(sale) {
   const form = $("#salesForm");
   const fields = form.elements;
   fields.rowNumber.value = sale.rowNumber || "";
@@ -327,6 +346,28 @@ function loadSaleForEdit(rowNumber) {
   updateRemainingAmount();
   form.scrollIntoView({ behavior: "smooth", block: "start" });
   showToast("Sale loaded. Edit and save to update the old record.");
+}
+
+function openMobileSearchPage(query) {
+  const params = new URLSearchParams({
+    searchPage: query,
+    appUrl: `${location.origin}${location.pathname}`
+  });
+  window.location.href = `${getApiUrl()}?${params.toString()}`;
+}
+
+function loadSaleFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const saleData = params.get("editSale");
+  if (!saleData) return;
+  try {
+    const sale = JSON.parse(decodeURIComponent(saleData));
+    state.searchResults = [sale];
+    loadSaleIntoForm(sale);
+    history.replaceState({}, "", `${location.origin}${location.pathname}`);
+  } catch (error) {
+    showToast("Could not load selected sale.");
+  }
 }
 
 function setSelectOrCustom(select, value, customValue) {
