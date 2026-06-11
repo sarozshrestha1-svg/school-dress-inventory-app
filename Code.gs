@@ -89,6 +89,7 @@ function parseRequestBody(e) {
 function handleAction(body) {
   const action = body.action;
   if (action === 'getAllData') return getAllData();
+  if (action === 'searchSalesByName') return searchSalesByName(body.query || '');
   if (action === 'addInventory') return addInventory(body.inventory || {});
   if (action === 'addSale') return addSale(body.sale || {});
   if (action === 'updateSale') return updateSale(body.sale || {});
@@ -347,6 +348,17 @@ function getAllData() {
     notifications: readObjects(SHEET_NAMES.notifications, HEADERS.notifications),
     dashboard: readObjects(SHEET_NAMES.dashboard, HEADERS.dashboard)
   };
+}
+
+function searchSalesByName(query) {
+  const search = text(query).toLowerCase();
+  const rows = mapSales(readObjects(SHEET_NAMES.sales, HEADERS.sales));
+  const matches = rows.filter(function(row) {
+    return !search || text(row.studentName).toLowerCase().indexOf(search) !== -1;
+  }).sort(function(a, b) {
+    return String(b.saleDate || '').localeCompare(String(a.saleDate || ''));
+  }).slice(0, 20);
+  return { ok: true, sales: matches };
 }
 
 function mapStock(rows) {

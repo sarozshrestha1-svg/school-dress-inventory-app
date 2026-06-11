@@ -60,8 +60,8 @@ function bindEvents() {
   $("#syncButton").addEventListener("click", loadAllData);
   $("#inventoryForm").addEventListener("submit", submitInventory);
   $("#salesForm").addEventListener("submit", submitSale);
-  $("#searchNameButton").addEventListener("click", renderNameSearchResults);
-  $("#searchName").addEventListener("input", renderNameSearchResults);
+  $("#searchNameButton").addEventListener("click", searchSalesByName);
+  $("#searchName").addEventListener("input", debounce(searchSalesByName, 350));
   $("#cancelSaleEdit").addEventListener("click", cancelSaleEdit);
   $("#runReport").addEventListener("click", renderReport);
   $("#exportPdf").addEventListener("click", () => window.print());
@@ -255,22 +255,42 @@ function formToObject(form) {
   return Object.fromEntries(new FormData(form).entries());
 }
 
-function renderNameSearchResults() {
+async function searchSalesByName() {
   const query = $("#searchName").value.trim().toLowerCase();
   const container = $("#nameSearchResults");
   if (!query) {
     container.innerHTML = "";
     return;
   }
-  const matches = state.sales
+  container.innerHTML = '<div class="search-empty">Searching Google Sheets...</div>';
+  try {
+    const data = await api("searchSalesByName", { query });
+    renderNameSearchResults(data.sales || []);
+  } catch (error) {
+    const localMatches = state.sales
+      .filter((sale) => String(sale.studentName || "").toLowerCase().includes(query))
+      .sort((a, b) => String(b.saleDate || "").localeCompare(String(a.saleDate || "")))
+      .slice(0, 12);
+    renderNameSearchResults(localMatches);
+  }
+}
+
+function renderNameSearchResults(matches = null) {
+  const query = $("#searchName").value.trim().toLowerCase();
+  const container = $("#nameSearchResults");
+  if (!query) {
+    container.innerHTML = "";
+    return;
+  }
+  const rows = matches || state.sales
     .filter((sale) => String(sale.studentName || "").toLowerCase().includes(query))
     .sort((a, b) => String(b.saleDate || "").localeCompare(String(a.saleDate || "")))
     .slice(0, 12);
-  if (!matches.length) {
+  if (!rows.length) {
     container.innerHTML = '<div class="search-empty">No matching customer found.</div>';
     return;
   }
-  container.innerHTML = matches.map((sale) => `
+  container.innerHTML = rows.map((sale) => `
     <button class="search-result" type="button" data-row="${sale.rowNumber}">
       <strong>${escapeHtml(sale.studentName || "Unnamed Customer")}</strong>
       <span>${escapeHtml(sale.schoolName || "")} | ${escapeHtml(sale.itemName || "")} | Size ${escapeHtml(sale.size || "")}</span>
@@ -332,6 +352,14 @@ function setSaleEditMode(isEditing, sale = {}) {
 function cancelSaleEdit() {
   resetEntryForm($("#salesForm"));
   showToast("Sale edit cancelled.");
+}
+
+function debounce(fn, wait) {
+  let timer;
+  return () => {
+    clearTimeout(timer);
+    timer = setTimeout(fn, wait);
+  };
 }
 
 function buildSalesWhatsAppMessage(sale) {
