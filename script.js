@@ -155,7 +155,8 @@ async function sendWithFormData(action, payload) {
     method: "POST",
     body: formData,
     mode: "no-cors",
-    cache: "no-store"
+    cache: "no-store",
+    keepalive: true
   });
 }
 
@@ -188,8 +189,9 @@ async function submitInventory(event) {
   payload.itemName = normalizeCustomItem(payload.itemName, payload.customItem);
   try {
     setSubmitting(submitButton, true, "Saving...");
-    const result = await saveEntry("addInventory", { inventory: payload });
+    const savePromise = saveEntry("addInventory", { inventory: payload });
     openWhatsAppMessage(OWNER_WHATSAPP, buildInventoryWhatsAppMessage(payload));
+    const result = await savePromise;
     resetEntryForm(form);
     if (!result.backup) await loadAllData({ silent: true });
     showToast(result.backup ? "Inventory saved. Owner WhatsApp message ready." : "Inventory saved. Owner WhatsApp message ready.");
@@ -210,10 +212,11 @@ async function submitSale(event) {
   payload.remainingAmount = form.remainingAmount.value;
   try {
     setSubmitting(submitButton, true, "Saving...");
-    const result = await saveEntry("addSale", { sale: payload });
+    const savePromise = saveEntry("addSale", { sale: payload });
     if (payload.phoneNo.trim()) {
       openWhatsAppMessage(payload.phoneNo, buildSalesWhatsAppMessage(payload));
     }
+    const result = await savePromise;
     resetEntryForm(form);
     if (!result.backup) await loadAllData({ silent: true });
     showToast(payload.phoneNo.trim() ? "Sale saved. Customer WhatsApp bill ready." : "Sale saved. No customer phone number entered.");
@@ -292,7 +295,20 @@ function buildInventoryWhatsAppMessage(inventory) {
 function openWhatsAppMessage(phone, message) {
   const normalized = normalizeNepalPhone(phone);
   if (!normalized) return;
-  window.open(`https://wa.me/${normalized}?text=${encodeURIComponent(message)}`, "_blank");
+  const encodedMessage = encodeURIComponent(message);
+  const webUrl = `https://wa.me/${normalized}?text=${encodedMessage}`;
+  const appUrl = `whatsapp://send?phone=${normalized}&text=${encodedMessage}`;
+
+  if (isMobileDevice()) {
+    window.location.href = appUrl;
+    return;
+  }
+
+  window.open(webUrl, "_blank", "noopener");
+}
+
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
 function normalizeNepalPhone(phone) {
