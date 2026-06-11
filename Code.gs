@@ -22,13 +22,18 @@ const HEADERS = {
 
 function doGet(e) {
   try {
-    setupSpreadsheet();
     const params = e && e.parameter ? e.parameter : {};
     if (params.payload) {
       const body = JSON.parse(params.payload || '{}');
+      if (body.action === 'searchSalesByName') {
+        const result = handleAction(body);
+        return scriptResponse(result, params.callback);
+      }
+      setupSpreadsheet();
       const result = handleAction(body);
       return scriptResponse(result, params.callback);
     }
+    setupSpreadsheet();
     return scriptResponse({ ok: true, message: 'School Dress Inventory backend is running.' }, params.callback);
   } catch (error) {
     return scriptResponse({ ok: false, message: error.message }, e && e.parameter && e.parameter.callback);

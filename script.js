@@ -108,7 +108,7 @@ function jsonp(url, payload) {
     const timeout = setTimeout(() => {
       cleanup();
       reject(new Error("Connection timed out. Check the Apps Script Web App URL."));
-    }, 30000);
+    }, 60000);
     const params = new URLSearchParams({
       callback: callbackName,
       payload: JSON.stringify(payload)
