@@ -166,10 +166,6 @@ function addSale(sale) {
     const remainingAmount = Math.max(totalBill - amountPaid, 0);
     const creditSale = remainingAmount > 0 ? 'Yes' : text(sale.creditSale || 'No');
     const pendingItem = text(sale.itemLeftToGive || 'Nothing Pending');
-    const available = getAvailableStock(text(sale.schoolName), text(sale.itemName), text(sale.size));
-    if (quantitySold > available) {
-      throw new Error('Only ' + available + ' item(s) available for this school, item, and size.');
-    }
     const ss = getSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAMES.sales);
     sheet.appendRow([
